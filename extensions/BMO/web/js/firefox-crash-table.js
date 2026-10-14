@@ -130,17 +130,14 @@ window.addEventListener('DOMContentLoaded', () => {
         productDetails = getMajors(data);
       });
 
-      const extraSocorroArgs = []
-      const baseUrl = "https://crash-stats.mozilla.org/search/?";
-      const sayNo = new Set(["_columns", "_facets", "_facets_size", "_sort", "_results_number", "date", "channel", "product", "version", "build_id"]);
-      const crashDataUrl = document.querySelector("#field-value-cf_crash_data_url [data-crash-data-url]")?.dataset.crashDataUrl;
-      if (crashDataUrl?.startsWith(baseUrl)) {
-        for (const [key, value] of new URL(crashDataUrl).searchParams) {
-          if (!sayNo.has(key)) {
-            extraSocorroArgs.push(encodeURIComponent(key) + "=" + encodeURIComponent(value));
-          }
-        }
+      let crashDataUrl = document.querySelector("#field-value-cf_crash_data_url [data-crash-data-url]")?.dataset.crashDataUrl;
+      if (!crashDataUrl) {
+        // Older bugs have their Socorro search URL in the URL field.
+        const urlSelector = oldWay ? "bz_url_edit_container" : "field-value-bug_file_loc";
+        crashDataUrl = [...document.querySelectorAll("#" + urlSelector + " a")]
+          .find(a => a.href.startsWith(CrashDataUrl.SEARCH_URL))?.href;
       }
+      const extraSocorroArgs = CrashDataUrl.getFilters(crashDataUrl);
       const hgurlPattern = new RegExp("^http[s]?://hg\\.mozilla\\.org/(?:releases/)?mozilla-([^/]*)/rev/([0-9a-f]+)$");
       const esrPattern = new RegExp("^esr[0-9]+$");
       const repos = new Set(["central", "beta", "release"]);

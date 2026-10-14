@@ -150,6 +150,23 @@ $t->put_ok($url
 
 check_crash_fields($bug_id, SIGNATURE, CRASH_URL, 'After setting both');
 
+# A mass edit is rejected before any bug is updated.
+
+$t->post_ok(
+  $url . 'rest/bug' => api_headers($api_key) => json => new_crash_bug())
+  ->status_is(200)->json_has('/id');
+my $unsigned_bug_id = $t->tx->res->json->{id};
+
+update_is_rejected(
+  $bug_id,
+  {ids => [$bug_id, $unsigned_bug_id], cf_crash_data_url => PAREN_URL},
+  $no_signature,
+  'Setting a crash data url on several bugs, one without a signature'
+);
+
+check_crash_fields($bug_id, SIGNATURE,   CRASH_URL, 'After rejected mass edit');
+check_crash_fields($unsigned_bug_id, '', '',        'After rejected mass edit');
+
 # Clearing the URL removes the graph's extra filters.
 
 $t->put_ok($url

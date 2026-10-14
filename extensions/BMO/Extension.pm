@@ -1172,20 +1172,37 @@ sub db_sanitize {
   Bugzilla->dbh->do("TRUNCATE TABLE bug_user_agent");
 }
 
+sub bug_start_of_set_all {
+  my ($self, $args) = @_;
+  my $bug = $args->{bug};
+
+  # Remember the crash fields so bug_end_of_set_all can tell if they changed.
+  # The accessor only exists once checksetup.pl has created the field.
+  $bug->{_crash_fields_before_set_all}
+    = [map { $bug->$_ // '' } qw(cf_crash_signature cf_crash_data_url)]
+    if $bug->can('cf_crash_data_url');
+}
+
+# Check here rather than in update() so that a mass edit is rejected before
+# any bug is written.
+sub bug_end_of_set_all {
+  my ($self, $args) = @_;
+  my $bug    = $args->{bug};
+  my $before = delete $bug->{_crash_fields_before_set_all} or return;
+  my ($signature, $url)
+    = map { $bug->$_ // '' } qw(cf_crash_signature cf_crash_data_url);
+
+  # Allow unrelated edits even if an existing URL lacks a signature.
+  return if $signature eq $before->[0] && $url eq $before->[1];
+  _check_crash_data_url_has_signature($signature, $url);
+}
+
 # bugs in an ASSIGNED state must be assigned to a real person
 # reset bugs to NEW if the assignee is nobody/.bugs$
 sub object_start_of_update {
   my ($self,    $args)    = @_;
   my ($new_bug, $old_bug) = @$args{qw( object old_object )};
   return unless $new_bug->isa('Bugzilla::Bug');
-
-  # Allow unrelated edits even if an existing URL lacks a signature.
-  if (any { ($new_bug->$_ // '') ne ($old_bug->$_ // '') }
-    qw(cf_crash_signature cf_crash_data_url))
-  {
-    _check_crash_data_url_has_signature($new_bug->cf_crash_signature,
-      $new_bug->cf_crash_data_url);
-  }
 
   # if either the assignee or status has changed
   return

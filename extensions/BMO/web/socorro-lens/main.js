@@ -247,21 +247,11 @@ function getSignaturesFromURL(search, match) {
   return result;
 }
 
-// Signatures come from the bug; dates use the graph's fixed range.
-var IGNORED_SEARCH_PARAMS = ["signature", "date", "channel", "product", "version", "build_id"];
-
 function getExtraParamsFromURL(search) {
   var url = (new URLSearchParams(search)).get('url');
-  if (!url || !url.startsWith("https://crash-stats.mozilla.org/search/?")) {
-    return "";
-  }
-  var extra = "";
-  (new URL(url)).searchParams.forEach(function (value, key) {
-    if (!key.startsWith("_") && !IGNORED_SEARCH_PARAMS.includes(key)) {
-      extra = extra + "&" + encodeURIComponent(key) + "=" + encodeURIComponent(value);
-    }
-  });
-  return extra;
+  return CrashDataUrl.getFilters(url).map(function (filter) {
+    return "&" + filter;
+  }).join("");
 }
 
 function draw() {
